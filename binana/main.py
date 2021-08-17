@@ -1,5 +1,7 @@
+import time
 from dotenv import load_dotenv
 from os import environ
+from time import sleep
 from binance.client import Client
 from portfolio_manager.objects.asset import Asset
 from portfolio_manager.objects.allocation import Allocation
@@ -10,6 +12,7 @@ from portfolio_manager.objects.portfolio import Portfolio
 account_id = 'binance'
 account_name = 'Binance.US'
 account = None
+client = None
 
 allocation = (Allocation()
     .with_category(
@@ -28,7 +31,14 @@ allocation = (Allocation()
     )
 ).verify()
 
+def configureClient():
+    global client
+    load_dotenv()
+    client = Client(environ.get('binana_api'), environ.get('binana_secret'), tld='us', testnet=False)
+
 def balance():
+    # configure the client
+    configureClient()
     # get account details
     account_details = AccountDetails(account_id, account_name, allocation)
     # get assets
@@ -40,8 +50,14 @@ def balance():
     portfolio.print_categories(account_details)
     portfolio.print_assets(account_details)
 
+def getAveragePrice(asset_symbol):
+    if asset_symbol == 'USD':
+        return 1.0
+    market_symbol = f'{asset_symbol}USD'
+    order_book_bids = client.get_order_book(symbol=market_symbol, limit=15)['bids']
+    return sum([float(bid[0]) for bid in order_book_bids]) / len(order_book_bids)
+
 def getAssetList():
-    client = Client(environ.get('binana_api'), environ.get('binana_secret'), tld='us', testnet=False)
     account = client.get_account()
 
     asset_list = []
@@ -50,9 +66,7 @@ def getAssetList():
         symbol = listing['asset']
 
         if total > 0 or symbol == 'USD':
-            avg_price = 1.0
-            if symbol != 'USD':
-                avg_price = float(client.get_avg_price(symbol=f'{symbol}USD')['price'])
+            avg_price = getAveragePrice(symbol)
             asset = Asset()
             asset.account_id = account_id
             asset.symbol = symbol
@@ -63,5 +77,7 @@ def getAssetList():
     return asset_list
 
 if __name__ == '__main__':
-    load_dotenv()
+    start = time.perf_counter()
     balance()
+    runtime = time.perf_counter() - start
+    print(f'\nRuntime: {runtime}')
