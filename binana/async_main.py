@@ -41,12 +41,16 @@ async def configure_client():
     load_dotenv()
     client = await AsyncClient.create(environ.get('binana_api'), environ.get('binana_secret'), tld='us', testnet=False)
 
+def get_cash_investment_amount(usd_balance):
+    # return max(usd_balance - 10, 0)
+    return min(200, usd_balance - 10)
+
 async def get_account_balances():
     balances = (await client.get_account())['balances']
     for balance in balances:
         balance['total'] = float(balance['free']) + float(balance['locked'])
         if balance['asset'] == 'USD':
-            balance['total'] = max(balance['total'] - 10, 0)
+            balance['total'] = get_cash_investment_amount(balance['total'])
     return [b for b in balances if b['total'] > 0 or b['asset'] == 'USD']
 
 async def get_avg_price(asset_symbol):
@@ -90,31 +94,49 @@ def get_portfolio_assets(account_balances, avg_prices):
         assets.append(asset)
     return assets
 
+async def order(symbol: str, quantity: float, price: float):
+    result = {
+        'symbol': symbol,
+        'quantity': quantity,
+        'price': price,
+    }
+    try:
+        response = await client.create_test_order(
+            symbol = f'{symbol}USD',
+            quantity = quantity,
+            price = str(price),
+            side = SIDE_BUY,
+            type = ORDER_TYPE_LIMIT,
+            timeInForce = TIME_IN_FORCE_GTC
+        )
+        result['result'] = 'SUCCESS'
+        result['response'] = response
+        result['message'] = f'Ordered {quantity} {symbol} at ${price:,.2f} (Total: ${quantity*price:,.2f})'
+    except Exception as e:
+        result['result'] = 'FAILURE'
+        result['exception_type'] = type(e).__name__
+        result['message'] = str(e)
+    return result
+
 async def submit_buy_orders(assets, avg_prices, all_symbol_info):
     tasks = []
     for asset in assets:
         if asset.amount_invested <= 0:
             continue
         symbol_info = all_symbol_info[asset.symbol]
-        quantity = round_step_size(asset.amount_invested / avg_prices[asset.symbol], symbol_info['stepSize'])
+        dollar_investment = asset.amount_invested / 100
+        quantity = round_step_size(dollar_investment / avg_prices[asset.symbol], symbol_info['stepSize'])
         price = round_step_size(avg_prices[asset.symbol], symbol_info['tickSize'])
         if (price < symbol_info['minPrice'] or price > symbol_info['maxPrice']
         or quantity < symbol_info['minQty']or quantity > symbol_info['maxQty']):
+            print(f'Could not submit {asset.symbol} order')
             continue
-        tasks.append(
-            client.create_test_order(
-                symbol = f'{asset.symbol}USD',
-                side = SIDE_BUY,
-                type = ORDER_TYPE_LIMIT,
-                timeInForce = TIME_IN_FORCE_GTC,
-                quantity = quantity,
-                price = str(price)
-            )
-        )
+        tasks.append(order(asset.symbol, quantity, price))
     try:
         results = await asyncio.gather(*tasks)
-        print(json.dumps(results))
-    except BinanceAPIException as e:
+        print(json.dumps(results, indent=2))
+    except Exception as e:
+        print('Failed to complete asyncio.gather() of orders')
         print(e)
 
 async def main():
@@ -144,8 +166,8 @@ async def main():
     await submit_buy_orders(assets, avg_prices, all_symbol_info)
 
     ## print account summary (optional)
-    portfolio.print_categories(account_details)
-    portfolio.print_assets(account_details)
+    # portfolio.print_categories(account_details)
+    # portfolio.print_assets(account_details)
 
     # Close the Binance client
     await client.close_connection()
@@ -154,4 +176,4 @@ if __name__ == '__main__':
     start = perf_counter()
     asyncio.run(main())
     runtime = perf_counter() - start
-    print(f'\nRuntime: {runtime}')
+    print(f'\nRuntime: {runtime} seconds')
