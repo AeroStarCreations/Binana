@@ -35,6 +35,7 @@ SYMBOLS = ALLOCATION.get_list_of_symbols()
 
 account = None
 client = None
+is_testing = True
 
 async def configure_client():
     global client
@@ -95,13 +96,17 @@ def get_portfolio_assets(account_balances, avg_prices):
     return assets
 
 async def order(symbol: str, quantity: float, price: float):
+    global is_testing
+    order_function = client.create_test_order
+    if not is_testing:
+        order_function = client.create_order
     result = {
         'symbol': symbol,
         'quantity': quantity,
         'price': price,
     }
     try:
-        response = await client.create_test_order(
+        response = await order_function(
             symbol = f'{symbol}USD',
             quantity = quantity,
             price = str(price),
@@ -139,7 +144,16 @@ async def submit_buy_orders(assets, avg_prices, all_symbol_info):
         print('Failed to complete asyncio.gather() of orders')
         print(e)
 
+def get_test_intentions_from_user():
+    global is_testing
+    is_testing = input('Is this a test run? (y/n) > ') == 'y'
+    if not is_testing:
+        is_testing = input('Are you sure you want to submit real orders? (y/n) > ') != 'y'
+
 async def main():
+    # Ask user if this is a test run
+    get_test_intentions_from_user()
+
     # Configure the Binance client
     await configure_client()
 
@@ -172,8 +186,15 @@ async def main():
     # Close the Binance client
     await client.close_connection()
 
+async def get_open_orders():
+    await configure_client()
+    open_orders = await client.get_open_orders()
+    print(json.dumps(open_orders, indent=2))
+    await client.close_connection()
+
 if __name__ == '__main__':
     start = perf_counter()
     asyncio.run(main())
+    # asyncio.run(get_open_orders())
     runtime = perf_counter() - start
     print(f'\nRuntime: {runtime} seconds')
