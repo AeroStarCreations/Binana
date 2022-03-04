@@ -10,4 +10,7 @@
 ## Helpful Links
 python-dotenv: https://github.com/theskumar/python-dotenv
 python env variable tips: https://www.twilio.com/blog/environment-variables-python
-binanace api tutorial: https://algotrading101.com/learn/binance-python-api-guide/
+Binance API tutorial: https://algotrading101.com/learn/binance-python-api-guide/
+Binance API Github: https://github.com/sammchardy/python-binance
+Binance API docs: https://python-binance.readthedocs.io/en/latest/
+Binance TestNet: https://testnet.binancefuture.com/en/futures/BTCUSDT
