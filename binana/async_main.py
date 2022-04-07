@@ -30,14 +30,16 @@ USD_SYMBOL = 'USD'
 ALLOCATION = (Allocation()
     .with_category(
         AllocationCategory('Large Cap')
-            .with_asset('ETH', 0.25)
-            .with_asset('BTC', 0.2)
-            .with_asset('ADA', 0.15)
-            .with_asset('UNI', 0.1)
+            .with_asset('ETH', 0.23)
+            .with_asset('BTC', 0.18)
+            .with_asset('ADA', 0.14)
+            .with_asset('SOL', 0.05)
     ).with_category(
         AllocationCategory('Mid Cap')
-            .with_asset('LINK', 0.15)
-            .with_asset('MATIC', 0.15)
+            .with_asset('LINK', 0.13)
+            .with_asset('MATIC', 0.13)
+            .with_asset('UNI', 0.09)
+            .with_asset('DOT', 0.05)
     ).with_category(
         AllocationCategory('Other')
             .with_asset('BNB', 0)
